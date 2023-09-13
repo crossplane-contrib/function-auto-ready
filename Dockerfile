@@ -5,7 +5,6 @@ WORKDIR /fn
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY input/ ./input
 COPY *.go ./
 
 RUN CGO_ENABLED=0 go build -o /function .
@@ -21,7 +20,6 @@ WORKDIR /package
 COPY package/ ./
 
 RUN cat crossplane.yaml > /package.yaml
-RUN cat input/*.yaml >> /package.yaml
 
 FROM gcr.io/distroless/base-debian11 AS build-release-stage
 

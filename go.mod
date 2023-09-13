@@ -1,4 +1,4 @@
-module github.com/crossplane/function-template-go
+module github.com/crossplane/function-auto-ready
 
 go 1.20
 
