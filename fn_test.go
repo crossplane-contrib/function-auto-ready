@@ -32,25 +32,68 @@ func TestRunFunction(t *testing.T) {
 		args   args
 		want   want
 	}{
-		"ResponseIsReturned": {
-			reason: "The Function should return a fatal result if no input was specified",
+		"AutoDetectReadiness": {
+			reason: "An existing composed resource with unspecified readiness and a Ready: True status condition should be detected as ready",
 			args: args{
 				req: &fnv1beta1.RunFunctionRequest{
 					Meta: &fnv1beta1.RequestMeta{Tag: "hello"},
-					Input: resource.MustStructJSON(`{
-						"apiVersion": "dummy.fn.crossplane.io",
-						"kind": "Input",
-						"example": "Hello, world!"
-					}`),
+					Observed: &fnv1beta1.State{
+						Composite: &fnv1beta1.Resource{
+							Resource: resource.MustStructJSON(`{
+								"apiVersion": "test.crossplane.io/v1",
+								"kind": "TestXR",
+								"metadata": {
+									"name": "my-test-xr"
+								}
+							}`),
+						},
+						Resources: map[string]*fnv1beta1.Resource{
+							"ready-composed-resource": {
+								Resource: resource.MustStructJSON(`{
+									"apiVersion": "test.crossplane.io/v1",
+									"kind": "TestComposed",
+									"metadata": {
+										"name": "my-test-composed"
+									},
+									"spec": {},
+									"status": {
+										"conditions": [
+											{
+												"type": "Ready",
+												"status": "True"
+											}
+										]
+									}
+								}`),
+							},
+						},
+					},
+					Desired: &fnv1beta1.State{
+						Resources: map[string]*fnv1beta1.Resource{
+							// This function doesn't care about the desired
+							// resource schema. In practice it would match
+							// observed (without status), but for this test it
+							// doesn't matter.
+							"ready-composed-resource": {
+								Resource: resource.MustStructJSON(`{}`),
+							},
+						},
+					},
 				},
 			},
 			want: want{
 				rsp: &fnv1beta1.RunFunctionResponse{
 					Meta: &fnv1beta1.ResponseMeta{Tag: "hello", Ttl: durationpb.New(response.DefaultTTL)},
-					Results: []*fnv1beta1.Result{
-						{
-							Severity: fnv1beta1.Severity_SEVERITY_NORMAL,
-							Message:  "I was run with input \"Hello, world!\"",
+					Desired: &fnv1beta1.State{
+						Resources: map[string]*fnv1beta1.Resource{
+							// This function doesn't care about the desired
+							// resource schema. In practice it would match
+							// observed (without status), but for this test it
+							// doesn't matter.
+							"ready-composed-resource": {
+								Resource: resource.MustStructJSON(`{}`),
+								Ready:    fnv1beta1.Ready_READY_TRUE,
+							},
 						},
 					},
 				},
