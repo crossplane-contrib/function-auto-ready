@@ -53,11 +53,6 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 
 	f.log.Debug("Found desired resources", "count", len(desired))
 
-	// TODO(negz): Could we make a better API for updating existing desired
-	// resources, given we can't mutate a struct in a map? What if we had a map
-	// to pointers to structs?
-	nd := resource.DesiredComposedResources{}
-
 	// Our goal here is to automatically determine (from the Ready status
 	// condition) whether existing composed resources are ready.
 	for name, dr := range desired {
@@ -68,7 +63,6 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 		or, ok := observed[name]
 		if !ok {
 			log.Debug("Ignoring desired resource that does not appear in observed resources")
-			nd[name] = dr
 			continue
 		}
 
@@ -77,10 +71,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 		// automatically determine readiness for desired resources where no
 		// other Function has an opinion about their readiness.
 		if dr.Ready != resource.ReadyUnspecified {
-			// TODO(negz): dr.Ready needs a String method. This is going to
-			// print the int value (0, 1, 2, etc) for dr.Ready.
 			log.Debug("Ignoring desired resource that already has explicit readiness", "ready", dr.Ready)
-			nd[name] = dr
 			continue
 		}
 
@@ -95,11 +86,9 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 			log.Info("Automatically determined that composed resource is ready")
 			dr.Ready = resource.ReadyTrue
 		}
-
-		nd[name] = dr
 	}
 
-	if err := response.SetDesiredComposedResources(rsp, nd); err != nil {
+	if err := response.SetDesiredComposedResources(rsp, desired); err != nil {
 		response.Fatal(rsp, errors.Wrapf(err, "cannot set desired composed resources from %T", req))
 		return rsp, nil
 	}
