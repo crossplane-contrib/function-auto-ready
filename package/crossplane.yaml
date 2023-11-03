@@ -3,4 +3,15 @@ apiVersion: meta.pkg.crossplane.io/v1beta1
 kind: Function
 metadata:
   name: function-auto-ready
+  annotations:
+    meta.crossplane.io/maintainer: Crossplane Maintainers <info@crossplane.io>
+    meta.crossplane.io/source: github.com/crossplane-contrib/function-auto-ready
+    meta.crossplane.io/license: Apache-2.0
+    meta.crossplane.io/description: A composition function that automatically detects when resources are ready
+    meta.crossplane.io/readme: |
+      This composition function automatically detects composed resources that
+      are ready. Crossplane considers a composite resource (XR) to be ready when
+      all of its desired composed resources are ready. See the
+      [README](https://github.com/crossplane-contrib/function-auto-ready)
+      for examples and documentation.
 spec: {}
