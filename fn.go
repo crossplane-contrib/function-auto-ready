@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
@@ -72,6 +73,20 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 		// other Function has an opinion about their readiness.
 		if dr.Ready != resource.ReadyUnspecified {
 			log.Debug("Ignoring desired resource that already has explicit readiness", "ready", dr.Ready)
+			continue
+		}
+
+		// We check if the desired resource misses conditions field at all (which happens e.g. for ProviderConfigs and
+		// EnvironmentConfigs), in that case set the resource state to Ready
+		_, found, err := unstructured.NestedSlice(dr.Resource.Object, "status", "conditions")
+		if err != nil {
+			log.Debug("No conditions field found for the object", "error", err)
+			dr.Ready = resource.ReadyTrue
+			continue
+		}
+		if !found {
+			log.Debug("No conditions found in resource")
+			dr.Ready = resource.ReadyTrue
 			continue
 		}
 
