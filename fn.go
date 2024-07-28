@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
+	"github.com/crossplane/function-auto-ready/input/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 
 	fnv1beta1 "github.com/crossplane/function-sdk-go/proto/v1beta1"
@@ -28,6 +27,12 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 	f.log.Info("Running Function", "tag", req.GetMeta().GetTag())
 
 	rsp := response.To(req, response.DefaultTTL)
+
+	in := &v1beta1.Input{}
+	if err := request.GetInput(req, in); err != nil {
+		response.Fatal(rsp, errors.Wrapf(err, "cannot get Function input from %T", req))
+		return rsp, nil
+	}
 
 	oxr, err := request.GetObservedCompositeResource(req)
 	if err != nil {
@@ -76,23 +81,19 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 			continue
 		}
 
-		// We check if the desired resource misses conditions field at all (which happens e.g. for ProviderConfigs and
-		// EnvironmentConfigs), in that case set the resource state to Ready
-		_, found, err := unstructured.NestedSlice(dr.Resource.Object, "status", "conditions")
-		if err != nil {
-			log.Debug("No conditions field found for the object", "error", err)
-			dr.Ready = resource.ReadyTrue
-			continue
-		}
-		if !found {
-			log.Debug("No conditions found in resource")
-			dr.Ready = resource.ReadyTrue
-			continue
+		// We check input for the function to determine if dr GVK is there, if so we force ready status
+		for _, gvk := range in.ForceReady {
+			if (gvk.Kind == "" || gvk.Kind == dr.Resource.GetKind()) &&
+				(gvk.ApiVersion == "" || gvk.ApiVersion == dr.Resource.GetAPIVersion()) {
+				log.Debug("Forcing Ready state as its GVK is defined in function input")
+				dr.Ready = resource.ReadyTrue
+				dr.Resource.SetConditions(xpv1.Available())
+				break
+			}
 		}
 
 		// Now we know this resource exists, and no Function that ran before us
 		// has an opinion about whether it's ready.
-
 		log.Debug("Found desired resource with unknown readiness")
 		// If this observed resource has a status condition with type: Ready,
 		// status: True, we set its readiness to true.
