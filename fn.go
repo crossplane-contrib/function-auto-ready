@@ -87,7 +87,9 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1beta1.RunFunctionRequ
 				(gvk.ApiVersion == "" || gvk.ApiVersion == dr.Resource.GetAPIVersion()) {
 				log.Debug("Forcing Ready state as its GVK is defined in function input")
 				dr.Ready = resource.ReadyTrue
-				dr.Resource.SetConditions(xpv1.Available())
+				if _, found := dr.Resource.Object["status"]; found {
+					dr.Resource.SetConditions(xpv1.Available())
+				}
 				break
 			}
 		}
