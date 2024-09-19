@@ -1,4 +1,7 @@
 ---
+# TODO(negz): Update to v1 once we have a build of the crossplane
+# CLI with a fix for the below issue.
+# https://github.com/crossplane/crossplane/issues/5971
 apiVersion: meta.pkg.crossplane.io/v1beta1
 kind: Function
 metadata:
