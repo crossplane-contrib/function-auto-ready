@@ -118,7 +118,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 			response.Fatal(rsp, errors.Wrapf(err, "cannot set desired composite resource in %T", rsp))
 			return rsp, nil
 		}
-		if *in.ExpectedResourceCount == r && r == len(desired) {
+		if *in.ExpectedResourceCount <= r && r == len(desired) {
 			rsp.GetDesired().GetComposite().Ready = fnv1.Ready_READY_TRUE
 		} else {
 			rsp.GetDesired().GetComposite().Ready = fnv1.Ready_READY_FALSE
