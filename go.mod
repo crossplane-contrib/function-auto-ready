@@ -2,7 +2,7 @@ module github.com/crossplane/function-auto-ready
 
 go 1.23
 
-toolchain go1.23.1
+toolchain go1.24.0
 
 require (
 	github.com/alecthomas/kong v1.2.1
