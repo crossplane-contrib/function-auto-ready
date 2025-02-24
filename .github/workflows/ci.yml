@@ -14,7 +14,7 @@ on:
 
 env:
   # Common versions
-  GO_VERSION: '1.23.1'
+  GO_VERSION: '1.23.6'
   GOLANGCI_VERSION: 'v1.61.0'
   DOCKER_BUILDX_VERSION: 'v0.11.2'
 
@@ -31,6 +31,7 @@ env:
   # The package to push, without a version tag. The default matches GitHub. For
   # example xpkg.upbound.io/crossplane/function-template-go.
   XPKG: xpkg.upbound.io/${{ github.repository}}
+  CROSSPLANE_REGORG: ghcr.io/${{ github.repository}} # xpkg.crossplane.io/crossplane-contrib
 
   # The package version to push. The default is 0.0.0-gitsha.
   XPKG_VERSION: ${{ inputs.version }}
@@ -116,9 +117,9 @@ jobs:
         run: ./crossplane xpkg build --package-file=${{ matrix.arch }}.xpkg --package-root=package/ --embed-runtime-image-tarball=runtime-${{ matrix.arch }}.tar
       
       - name: Upload Single-Platform Package
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: packages
+          name: packages-${{ matrix.arch }}
           path: "*.xpkg"
           if-no-files-found: error
           retention-days: 1
@@ -135,10 +136,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download Single-Platform Packages
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: packages
           path: .
+          merge-multiple: true
 
       - name: Setup the Crossplane CLI
         run: "curl -sL https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh | sh"
@@ -162,3 +163,14 @@ jobs:
       - name: Push Multi-Platform Package to Upbound
         if: env.XPKG_ACCESS_ID != ''
         run: "./crossplane --verbose xpkg push --package-files $(echo *.xpkg|tr ' ' ,) ${{ env.XPKG }}:${{ env.XPKG_VERSION }}"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push Multi-Platform Package to GHCR
+        if: env.XPKG_ACCESS_ID != ''
+        run: "./crossplane --verbose xpkg push --package-files $(echo *.xpkg|tr ' ' ,) ${{ env.CROSSPLANE_REGORG }}:${{ env.XPKG_VERSION }}"
