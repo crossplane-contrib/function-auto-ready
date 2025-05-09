@@ -16,7 +16,7 @@ env:
   # Common versions
   GO_VERSION: '1.23.6'
   GOLANGCI_VERSION: 'v1.61.0'
-  DOCKER_BUILDX_VERSION: 'v0.11.2'
+  DOCKER_BUILDX_VERSION: 'v0.23.0'
 
   # These environment variables are important to the Crossplane CLI install.sh
   # script. They determine what version it installs.
@@ -109,13 +109,13 @@ jobs:
           build-args:
             GO_VERSION=${{ env.GO_VERSION }}
           outputs: type=docker,dest=runtime-${{ matrix.arch }}.tar
-      
+
       - name: Setup the Crossplane CLI
         run: "curl -sL https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh | sh"
 
       - name: Build Package
         run: ./crossplane xpkg build --package-file=${{ matrix.arch }}.xpkg --package-root=package/ --embed-runtime-image-tarball=runtime-${{ matrix.arch }}.tar
-      
+
       - name: Upload Single-Platform Package
         uses: actions/upload-artifact@v4
         with:
@@ -140,6 +140,7 @@ jobs:
         with:
           path: .
           merge-multiple: true
+          pattern: "!*.dockerbuild" # This gets uploaded by docker/build-push-action but must be skipped: https://github.com/actions/toolkit/pull/1874
 
       - name: Setup the Crossplane CLI
         run: "curl -sL https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh | sh"
