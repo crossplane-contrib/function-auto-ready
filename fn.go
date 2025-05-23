@@ -24,7 +24,7 @@ type Function struct {
 
 // RunFunction runs the Function.
 func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) (*fnv1.RunFunctionResponse, error) {
-	f.log.Info("Running Function", "tag", req.GetMeta().GetTag())
+	f.log.Debug("Running Function", "tag", req.GetMeta().GetTag())
 
 	rsp := response.To(req, response.DefaultTTL)
 
@@ -83,7 +83,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 		// status: True, we set its readiness to true.
 		c := or.Resource.GetCondition(xpv1.TypeReady)
 		if c.Status == corev1.ConditionTrue {
-			log.Info("Automatically determined that composed resource is ready")
+			log.Debug("Automatically determined that composed resource is ready")
 			dr.Ready = resource.ReadyTrue
 		}
 	}
