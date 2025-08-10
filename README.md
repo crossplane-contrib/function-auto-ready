@@ -50,6 +50,95 @@ spec:
       name: function-auto-ready
 ```
 
+### Composite Readiness
+The default behavior is that Crossplane determines the Composite Readiness
+based on whether or not all of the Desired Resources are in the Ready state.
+This can cause the Composite to appear `Ready` prematurely in some scenarios.
+To avoid this problem the `expectedResourceCount` input can be used to ensure
+that the Composite resource waits for _at least_ the indicated number of
+resources to be ready before the Composite resource is marked as Ready.
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: example
+spec:
+  compositeTypeRef:
+    apiVersion: example.crossplane.io/v1beta1
+    kind: XR
+  mode: Pipeline
+  pipeline:
+  - step: create-a-bucket
+    functionRef:
+      name: function-go-templating
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |
+          apiVersion: s3.aws.upbound.io/v1beta1
+          kind: Bucket
+          metadata:
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: bucket
+          spec:
+            forProvider:
+              region: {{ .observed.composite.resource.spec.region }}
+  - step: automatically-detect-ready-composed-resources
+    functionRef:
+      name: function-auto-ready
+    input:
+      apiVersion: autoready.fn.crossplane.io/v1beta1
+      kind: Input
+      expectedResourceCount: 1
+```
+
+The function will also accept input from the pipeline context using the key
+`autoready.fn.crossplane.io`.  Context input overrides inline input values.
+
+```yaml
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: example
+spec:
+  compositeTypeRef:
+    apiVersion: example.crossplane.io/v1beta1
+    kind: XR
+  mode: Pipeline
+  pipeline:
+  - step: create-a-bucket
+    functionRef:
+      name: function-go-templating
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |
+          apiVersion: s3.aws.upbound.io/v1beta1
+          kind: Bucket
+          metadata:
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: bucket
+          ---
+          # Other resources...
+          ---
+          apiVersion: meta.gotemplating.fn.crossplane.io/v1alpha1
+          kind: Context
+          data:
+            "autoready.fn.crossplane.io":
+              expectedResourceCount: {{ $.myExpectedResourceCount }}
+
+  - step: automatically-detect-ready-composed-resources
+    functionRef:
+      name: function-auto-ready
+    input:
+      expectedResourceCount: 1  # This is ignored because the context has the key
+```
+
 See the [example](example) directory for an example you can run locally using
 the Crossplane CLI:
 
