@@ -1,6 +1,6 @@
 module github.com/crossplane/function-auto-ready
 
-go 1.23.8
+go 1.23.12
 
 require (
 	github.com/alecthomas/kong v1.2.1
@@ -48,7 +48,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
-	golang.org/x/oauth2 v0.22.0 // indirect
+	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/term v0.30.0 // indirect
