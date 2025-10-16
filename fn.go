@@ -11,6 +11,7 @@ import (
 	"github.com/crossplane/function-sdk-go/request"
 	"github.com/crossplane/function-sdk-go/resource"
 	"github.com/crossplane/function-sdk-go/response"
+	"github.com/crossplane/function-auto-ready/input/v1beta1"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 )
@@ -27,6 +28,12 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 	f.log.Info("Running Function", "tag", req.GetMeta().GetTag())
 
 	rsp := response.To(req, response.DefaultTTL)
+
+	in := &v1beta1.Input{}
+	if err := request.GetInput(req, in); err != nil {
+		response.Fatal(rsp, errors.Wrapf(err, "cannot get Function input from %T", req))
+		return rsp, nil
+	}
 
 	oxr, err := request.GetObservedCompositeResource(req)
 	if err != nil {
@@ -73,6 +80,19 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 		if dr.Ready != resource.ReadyUnspecified {
 			log.Debug("Ignoring desired resource that already has explicit readiness", "ready", dr.Ready)
 			continue
+		}
+
+		// We check input for the function to determine if dr GVK is there, if so we force ready status
+		for _, gvk := range in.ForceReady {
+			if (gvk.Kind == "" || gvk.Kind == dr.Resource.GetKind()) &&
+				(gvk.ApiVersion == "" || gvk.ApiVersion == dr.Resource.GetAPIVersion()) {
+				log.Debug("Forcing Ready state as its GVK is defined in function input")
+				dr.Ready = resource.ReadyTrue
+				if _, found := dr.Resource.Object["status"]; found {
+					dr.Resource.SetConditions(xpv1.Available())
+				}
+				break
+			}
 		}
 
 		// Now we know this resource exists, and no Function that ran before us

@@ -48,6 +48,12 @@ spec:
   - step: automatically-detect-ready-composed-resources
     functionRef:
       name: function-auto-ready
+    input:
+        apiVersion: auto-ready.fn.crossplane.io/v1beta1
+        kind: Input
+        forceReady:
+        - kind: ServiceAccount #Forces desired object to be reported as ready. Useful for objects that does not have a status field etc.
+          apiVersion: v1
 ```
 
 See the [example](example) directory for an example you can run locally using
