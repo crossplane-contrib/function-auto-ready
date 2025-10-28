@@ -13,7 +13,11 @@ import (
 	"github.com/crossplane/function-sdk-go/response"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+
+	"github.com/crossplane/function-auto-ready/input/v1beta1"
 )
+
+const KeyContext = "autoready.fn.crossplane.io"
 
 // Function returns whatever response you ask it to.
 type Function struct {
@@ -28,6 +32,18 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 
 	rsp := response.To(req, response.DefaultTTL)
 
+	in := &v1beta1.Input{}
+	if v, ok := request.GetContextKey(req, KeyContext); ok {
+		if err := resource.AsObject(v.GetStructValue(), in); err != nil {
+			response.Fatal(rsp, errors.Wrapf(err, "cannot get function input from %T context key %q", req, KeyContext))
+			return rsp, nil
+		}
+	} else {
+		if err := request.GetInput(req, in); err != nil {
+			response.Fatal(rsp, errors.Wrapf(err, "cannot get Function input from %T", req))
+			return rsp, nil
+		}
+	}
 	oxr, err := request.GetObservedCompositeResource(req)
 	if err != nil {
 		response.Fatal(rsp, errors.Wrapf(err, "cannot get observed composite resource from %T", req))
@@ -38,7 +54,6 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 		"xr-kind", oxr.Resource.GetKind(),
 		"xr-name", oxr.Resource.GetName(),
 	)
-
 	observed, err := request.GetObservedComposedResources(req)
 	if err != nil {
 		response.Fatal(rsp, errors.Wrapf(err, "cannot get observed composed resources from %T", req))
@@ -55,6 +70,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 
 	// Our goal here is to automatically determine (from the Ready status
 	// condition) whether existing composed resources are ready.
+	var r int = 0
 	for name, dr := range desired {
 		log := log.WithValues("composed-resource-name", name)
 
@@ -72,6 +88,9 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 		// other Function has an opinion about their readiness.
 		if dr.Ready != resource.ReadyUnspecified {
 			log.Debug("Ignoring desired resource that already has explicit readiness", "ready", dr.Ready)
+			if dr.Ready == resource.ReadyTrue {
+				r += 1
+			}
 			continue
 		}
 
@@ -85,9 +104,26 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 		if c.Status == corev1.ConditionTrue {
 			log.Info("Automatically determined that composed resource is ready")
 			dr.Ready = resource.ReadyTrue
+			r += 1
 		}
 	}
-
+	if in.ExpectedResourceCount != nil {
+		// The composite resource desired by previous functions in the pipeline.
+		dxr, err := request.GetDesiredCompositeResource(req)
+		if err != nil {
+			response.Fatal(rsp, errors.Wrap(err, "cannot get desired composite resource"))
+			return rsp, nil
+		}
+		if err := response.SetDesiredCompositeResource(rsp, dxr); err != nil {
+			response.Fatal(rsp, errors.Wrapf(err, "cannot set desired composite resource in %T", rsp))
+			return rsp, nil
+		}
+		if *in.ExpectedResourceCount <= r && r == len(desired) {
+			rsp.GetDesired().GetComposite().Ready = fnv1.Ready_READY_TRUE
+		} else {
+			rsp.GetDesired().GetComposite().Ready = fnv1.Ready_READY_FALSE
+		}
+	}
 	if err := response.SetDesiredComposedResources(rsp, desired); err != nil {
 		response.Fatal(rsp, errors.Wrapf(err, "cannot set desired composed resources from %T", req))
 		return rsp, nil
