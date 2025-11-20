@@ -1,0 +1,63 @@
+# This file simulates observed resources as they would appear in a running cluster
+# Use this with: crossplane render xr.yaml composition-k8s.yaml functions.yaml -o observed-k8s.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: example-service
+  annotations:
+    crossplane.io/composition-resource-name: service
+spec:
+  type: ClusterIP
+  selector:
+    app: example
+  ports:
+  - port: 80
+    targetPort: 8080
+status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-deployment
+  annotations:
+    crossplane.io/composition-resource-name: deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: example
+  template:
+    metadata:
+      labels:
+        app: example
+    spec:
+      containers:
+      - name: app
+        image: nginx:latest
+        ports:
+        - containerPort: 8080
+status:
+  replicas: 3
+  updatedReplicas: 3
+  availableReplicas: 3
+  readyReplicas: 3
+  conditions:
+  - type: Available
+    status: "True"
+    reason: MinimumReplicasAvailable
+    message: Deployment has minimum availability
+  - type: Progressing
+    status: "True"
+    reason: NewReplicaSetAvailable
+    message: ReplicaSet has successfully progressed
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example-config
+  annotations:
+    crossplane.io/composition-resource-name: config
+data:
+  config.yaml: |
+    key: value

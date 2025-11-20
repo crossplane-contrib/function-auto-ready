@@ -1,0 +1,69 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: example-k8s-resources
+spec:
+  compositeTypeRef:
+    apiVersion: example.crossplane.io/v1
+    kind: XR
+  mode: Pipeline
+  pipeline:
+  - step: create-k8s-resources
+    functionRef:
+      name: function-go-templating
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: example-service
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: service
+          spec:
+            type: ClusterIP
+            selector:
+              app: example
+            ports:
+            - port: 80
+              targetPort: 8080
+          ---
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: example-deployment
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: deployment
+          spec:
+            replicas: 3
+            selector:
+              matchLabels:
+                app: example
+            template:
+              metadata:
+                labels:
+                  app: example
+              spec:
+                containers:
+                - name: app
+                  image: nginx:latest
+                  ports:
+                  - containerPort: 8080
+          ---
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: example-config
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: config
+          data:
+            config.yaml: |
+              key: value
+  # This function will automatically detect readiness using resource-specific health checks
+  - step: automatically-detect-ready-composed-resources
+    functionRef:
+      name: function-auto-ready
