@@ -2,6 +2,7 @@ package healthchecks
 
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -21,6 +22,18 @@ func RegisterHealthCheck(gvk schema.GroupVersionKind, fn HealthCheckFunc) {
 // Returns nil if no health check is registered for the GVK
 func GetHealthCheck(gvk schema.GroupVersionKind) HealthCheckFunc {
 	return registry[gvk]
+}
+
+// alwaysReady is a health check function for resources that are considered ready
+// if they exist in the observed state (e.g., ConfigMap, Secret, ServiceAccount, Namespace).
+// These resources don't have meaningful status conditions to check.
+func alwaysReady(obj *unstructured.Unstructured) bool {
+	return true
+}
+
+// convertFromUnstructured converts an unstructured object to a typed Kubernetes object
+func convertFromUnstructured(obj *unstructured.Unstructured, target interface{}) error {
+	return runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, target)
 }
 
 // getInt64Field extracts an int64 value from a field, handling multiple numeric types
@@ -44,11 +57,19 @@ func getInt64Field(obj map[string]interface{}, path ...string) (int64, bool) {
 
 func init() {
 	// Register all standard Kubernetes resource health checks
-	registerDeploymentHealthCheck()
-	registerStatefulSetHealthCheck()
-	registerDaemonSetHealthCheck()
-	registerServiceHealthCheck()
-	registerSecretHealthCheck()
 	registerConfigMapHealthCheck()
+	registerCronJobHealthCheck()
+	registerDaemonSetHealthCheck()
+	registerDeploymentHealthCheck()
+	registerHorizontalPodAutoscalerHealthCheck()
 	registerIngressHealthCheck()
+	registerJobHealthCheck()
+	registerNamespaceHealthCheck()
+	registerPersistentVolumeClaimHealthCheck()
+	registerPodHealthCheck()
+	registerReplicaSetHealthCheck()
+	registerSecretHealthCheck()
+	registerServiceHealthCheck()
+	registerServiceAccountHealthCheck()
+	registerStatefulSetHealthCheck()
 }
