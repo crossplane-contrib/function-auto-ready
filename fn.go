@@ -13,6 +13,8 @@ import (
 	"github.com/crossplane/function-sdk-go/response"
 
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+
+	"github.com/crossplane/function-auto-ready/healthchecks"
 )
 
 // Function returns whatever response you ask it to.
@@ -53,8 +55,35 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 
 	f.log.Debug("Found desired resources", "count", len(desired))
 
-	// Our goal here is to automatically determine (from the Ready status
-	// condition) whether existing composed resources are ready.
+	// First, mark standard Kubernetes resources as ready using resource-specific health checks
+	for name, dr := range desired {
+		log := log.WithValues("composed-resource-name", name)
+
+		// Skip if resource doesn't exist yet
+		or, ok := observed[name]
+		if !ok {
+			continue
+		}
+
+		// Skip if readiness already explicitly set
+		if dr.Ready != resource.ReadyUnspecified {
+			continue
+		}
+
+		// Check if this resource type has a registered health check
+		// Get GVK from the unstructured object (apiVersion and kind fields)
+		// composed.Unstructured embeds unstructured.Unstructured, so we can use it directly
+		gvk := or.Resource.GroupVersionKind()
+		if healthCheck := healthchecks.GetHealthCheck(gvk); healthCheck != nil {
+			log.Debug("Using resource-specific health check", "gvk", gvk.String())
+			if healthCheck(&or.Resource.Unstructured) {
+				log.Info("Marked resource as ready via resource-specific health check", "gvk", gvk.String())
+				dr.Ready = resource.ReadyTrue
+			}
+		}
+	}
+
+	// Second, check remaining resources using the Ready status condition
 	for name, dr := range desired {
 		log := log.WithValues("composed-resource-name", name)
 
