@@ -3,7 +3,7 @@ module github.com/crossplane/function-auto-ready
 go 1.24.11
 
 require (
-	github.com/alecthomas/kong v1.12.0
+	github.com/alecthomas/kong v1.13.0
 	github.com/crossplane/crossplane-runtime v1.20.0
 	github.com/crossplane/function-sdk-go v0.4.0
 	github.com/google/go-cmp v0.7.0
