@@ -7,18 +7,19 @@ import (
 	"github.com/alecthomas/kong"
 
 	"github.com/crossplane/function-sdk-go"
+	"github.com/crossplane/function-sdk-go/response"
 )
 
 // CLI of this Function.
 type CLI struct {
 	Debug bool `short:"d" help:"Emit debug logs in addition to info logs."`
 
-	Network            string        `help:"Network on which to listen for gRPC connections." default:"tcp"`
-	Address            string        `help:"Address at which to listen for gRPC connections." default:":9443"`
-	TLSCertsDir        string        `help:"Directory containing server certs (tls.key, tls.crt) and the CA used to verify client certificates (ca.crt)" env:"TLS_SERVER_CERTS_DIR"`
-	Insecure           bool          `help:"Run without mTLS credentials. If you supply this flag --tls-server-certs-dir will be ignored."`
-	MaxRecvMessageSize int           `help:"Maximum size of received messages in MB." default:"4"`
-	TTL                time.Duration `help:"Time to live for function response." default:"1m"`
+	Network            string         `help:"Network on which to listen for gRPC connections." default:"tcp"`
+	Address            string         `help:"Address at which to listen for gRPC connections." default:":9443"`
+	TLSCertsDir        string         `help:"Directory containing server certs (tls.key, tls.crt) and the CA used to verify client certificates (ca.crt)" env:"TLS_SERVER_CERTS_DIR"`
+	Insecure           bool           `help:"Run without mTLS credentials. If you supply this flag --tls-server-certs-dir will be ignored."`
+	MaxRecvMessageSize int            `help:"Maximum size of received messages in MB." default:"4"`
+	TTL                *time.Duration `help:"Time to live for function response."`
 }
 
 // Run this Function.
@@ -27,8 +28,12 @@ func (c *CLI) Run() error {
 	if err != nil {
 		return err
 	}
+	ttl := response.DefaultTTL
+	if c.TTL != nil {
+		ttl = *c.TTL
+	}
 
-	return function.Serve(&Function{log: log, TTL: c.TTL},
+	return function.Serve(&Function{log: log, TTL: ttl},
 		function.Listen(c.Network, c.Address),
 		function.MTLSCertificates(c.TLSCertsDir),
 		function.Insecure(c.Insecure),
