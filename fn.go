@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -22,13 +23,14 @@ type Function struct {
 	fnv1.UnimplementedFunctionRunnerServiceServer
 
 	log logging.Logger
+	TTL time.Duration
 }
 
 // RunFunction runs the Function.
 func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) (*fnv1.RunFunctionResponse, error) {
 	f.log.Debug("Running Function", "tag", req.GetMeta().GetTag())
 
-	rsp := response.To(req, response.DefaultTTL)
+	rsp := response.To(req, f.TTL)
 
 	oxr, err := request.GetObservedCompositeResource(req)
 	if err != nil {
