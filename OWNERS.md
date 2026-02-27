@@ -14,5 +14,6 @@ repository maintainers in their own `OWNERS.md` file.
 * Nic Cope <negz@upbound.io> ([negz](https://github.com/negz))
 * Sergen Yalcin <sergen@upbound.io> ([sergenyalcin](https://github.com/sergenyalcin))
 * Fatih Turken <fatih@upbound.io> ([turkenf](https://github.com/turkenf))
+* Alper Ulucinar <alper@upbound.io> ([ulucinar](https://github.com/ulucinar))
 
 See [CODEOWNERS](./CODEOWNERS) for automatic PR assignment.
