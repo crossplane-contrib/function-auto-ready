@@ -42,7 +42,7 @@ func checkCronJobHealth(obj *unstructured.Unstructured) bool {
 	// Check if last execution was successful
 	// If lastSuccessfulTime is after lastScheduleTime, the last execution succeeded
 	if cronJob.Status.LastSuccessfulTime != nil && cronJob.Status.LastScheduleTime != nil {
-		if cronJob.Status.LastSuccessfulTime.Time.After(cronJob.Status.LastScheduleTime.Time) ||
+		if cronJob.Status.LastSuccessfulTime.After(cronJob.Status.LastScheduleTime.Time) ||
 			cronJob.Status.LastSuccessfulTime.Time.Equal(cronJob.Status.LastScheduleTime.Time) {
 			return true
 		}
