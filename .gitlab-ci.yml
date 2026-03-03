@@ -27,7 +27,7 @@ build-image:
       set -euxo pipefail
 
       REGISTRY="${BUILD_STABLE_REGISTRY}"
-      IMAGE_NAME="function-auto-ready"
+      IMAGE_NAME="crossplane-compute-cloud/function-auto-ready"
       IMAGE_TAG="v${CI_PIPELINE_ID}-${CI_COMMIT_SHORT_SHA}"
       PLATFORMS="linux/amd64,linux/arm64"
 
@@ -89,7 +89,7 @@ build-release:
       fi
 
       REGISTRY="${BUILD_STABLE_REGISTRY}"
-      IMAGE_NAME="function-auto-ready"
+      IMAGE_NAME="crossplane-compute-cloud/function-auto-ready"
       IMAGE_TAG="${VERSION}"
       PLATFORMS="linux/amd64,linux/arm64"
 
@@ -120,6 +120,7 @@ build-release:
         --label target=prod \
         --label CI_PIPELINE_ID="${CI_PIPELINE_ID}" \
         --label CI_JOB_ID="${CI_JOB_ID}" \
+        --annotation target=staging \
         --tag "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" \
         --metadata-file "${METADATA_FILE}" \
         --output type=image,push=true,compression=zstd,force-compression=true,oci-mediatypes=true \
