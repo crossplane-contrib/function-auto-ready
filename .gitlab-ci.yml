@@ -1,0 +1,131 @@
+default:
+  tags: ["arch:amd64"]
+  image: registry.ddbuild.io/docker:27.3.1
+
+variables:
+  BUILD_STABLE_REGISTRY: registry.ddbuild.io
+  DISTROLESS_ROOT_FIPS_BASE_IMAGE: registry.ddbuild.io/images/base/gbi-distroless-nossl-root-fips:release
+
+# Force git to remove any reference to the local disk copy of the repository
+before_script:
+  - git repack -a -d && rm -f .git/objects/info/alternates
+
+stages:
+  - build
+
+# Build and push the function image tagged with pipeline ID + commit SHA
+build-image:
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - when: manual
+  id_tokens:
+    DDSIGN_ID_TOKEN:
+      aud: image-integrity
+  script:
+    - |
+      set -euxo pipefail
+
+      REGISTRY="${BUILD_STABLE_REGISTRY}"
+      IMAGE_NAME="function-auto-ready"
+      IMAGE_TAG="v${CI_PIPELINE_ID}-${CI_COMMIT_SHORT_SHA}"
+      PLATFORMS="linux/amd64,linux/arm64"
+
+      echo "Building ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+
+      cat > Dockerfile.ci << 'EOF'
+      FROM golang:1.25-alpine AS builder
+      WORKDIR /fn
+      ENV CGO_ENABLED=0
+      ENV GOFIPS140=v1.0.0
+      COPY go.mod go.sum ./
+      RUN go mod download
+      COPY . .
+      RUN GOOS=linux go build -o /function .
+      FROM registry.ddbuild.io/images/base/gbi-distroless-nossl-root-fips:release
+      COPY --from=builder /function /function
+      EXPOSE 9443
+      USER 65532
+      ENTRYPOINT ["/function"]
+      EOF
+
+      METADATA_FILE=$(mktemp)
+      docker buildx build \
+        --platform "${PLATFORMS}" \
+        --file Dockerfile.ci \
+        --label is_fips=true \
+        --label version="${IMAGE_TAG}" \
+        --label target=prod \
+        --label CI_PIPELINE_ID="${CI_PIPELINE_ID}" \
+        --label CI_JOB_ID="${CI_JOB_ID}" \
+        --tag "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" \
+        --metadata-file "${METADATA_FILE}" \
+        --output type=image,push=true,compression=zstd,force-compression=true,oci-mediatypes=true \
+        .
+
+      ddsign sign "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" --docker-metadata-file "${METADATA_FILE}"
+      SHA=$(jq -r '.["containerimage.digest"]' < "${METADATA_FILE}")
+      echo "Built and pushed ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} (digest: ${SHA})"
+      rm -f "${METADATA_FILE}" Dockerfile.ci
+
+# Build and push the function image with a semantic version tag.
+# Requires VERSION variable to be set (e.g. 1.2.3) when manually triggering this job.
+build-release:
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  id_tokens:
+    DDSIGN_ID_TOKEN:
+      aud: image-integrity
+  script:
+    - |
+      set -euxo pipefail
+
+      if [ -z "${VERSION:-}" ]; then
+        echo "ERROR: VERSION variable must be set when triggering this job"
+        echo "Example: Set VERSION=1.2.3 in the job variables"
+        exit 1
+      fi
+
+      REGISTRY="${BUILD_STABLE_REGISTRY}"
+      IMAGE_NAME="function-auto-ready"
+      IMAGE_TAG="${VERSION}"
+      PLATFORMS="linux/amd64,linux/arm64"
+
+      echo "Building release ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+
+      cat > Dockerfile.ci << 'EOF'
+      FROM golang:1.25-alpine AS builder
+      WORKDIR /fn
+      ENV CGO_ENABLED=0
+      ENV GOFIPS140=v1.0.0
+      COPY go.mod go.sum ./
+      RUN go mod download
+      COPY . .
+      RUN GOOS=linux go build -o /function .
+      FROM registry.ddbuild.io/images/base/gbi-distroless-nossl-root-fips:release
+      COPY --from=builder /function /function
+      EXPOSE 9443
+      USER 65532
+      ENTRYPOINT ["/function"]
+      EOF
+
+      METADATA_FILE=$(mktemp)
+      docker buildx build \
+        --platform "${PLATFORMS}" \
+        --file Dockerfile.ci \
+        --label is_fips=true \
+        --label version="${IMAGE_TAG}" \
+        --label target=prod \
+        --label CI_PIPELINE_ID="${CI_PIPELINE_ID}" \
+        --label CI_JOB_ID="${CI_JOB_ID}" \
+        --tag "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" \
+        --metadata-file "${METADATA_FILE}" \
+        --output type=image,push=true,compression=zstd,force-compression=true,oci-mediatypes=true \
+        .
+
+      ddsign sign "${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}" --docker-metadata-file "${METADATA_FILE}"
+      SHA=$(jq -r '.["containerimage.digest"]' < "${METADATA_FILE}")
+      echo "Built and pushed ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} (digest: ${SHA})"
+      rm -f "${METADATA_FILE}" Dockerfile.ci
