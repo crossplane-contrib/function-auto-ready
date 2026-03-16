@@ -35,7 +35,7 @@ func TestCheckCronJobHealth(t *testing.T) {
 						"suspend": false,
 					},
 					"status": map[string]interface{}{
-						"lastScheduleTime":    "2024-01-01T10:00:00Z",
+						"lastScheduleTime":   "2024-01-01T10:00:00Z",
 						"lastSuccessfulTime": "2024-01-01T10:05:00Z",
 					},
 				},
@@ -73,7 +73,7 @@ func TestCheckCronJobHealth(t *testing.T) {
 						"suspend": false,
 					},
 					"status": map[string]interface{}{
-						"lastScheduleTime":    "2024-01-01T10:05:00Z",
+						"lastScheduleTime":   "2024-01-01T10:05:00Z",
 						"lastSuccessfulTime": "2024-01-01T10:00:00Z",
 					},
 				},
