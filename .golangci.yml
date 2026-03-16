@@ -7,10 +7,6 @@ version: "2"
 run:
   timeout: 5m
 
-output:
-  formats:
-    colored-line-number: {}
-
 formatters:
   enable:
     - goimports
@@ -35,9 +31,6 @@ linters:
       check-type-assertions: false
       check-blank: false
 
-    govet:
-      check-shadowing: false
-
   exclusions:
     generated: lax
     presets:
@@ -49,8 +42,3 @@ linters:
       - path: _test\.go
         linters:
           - errcheck
-
-issues:
-  new: false
-  max-per-linter: 0
-  max-same-issues: 0
