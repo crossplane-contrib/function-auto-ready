@@ -68,6 +68,8 @@ func init() {
 	registerPersistentVolumeClaimHealthCheck()
 	registerPodHealthCheck()
 	registerReplicaSetHealthCheck()
+	registerRoleHealthCheck()
+	registerRoleBindingHealthCheck()
 	registerSecretHealthCheck()
 	registerServiceHealthCheck()
 	registerServiceAccountHealthCheck()
