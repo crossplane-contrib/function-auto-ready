@@ -33,7 +33,7 @@ func (c *CLI) Run() error {
 		ttl = *c.TTL
 	}
 
-	return function.Serve(&Function{log: log, TTL: ttl},
+	return function.Serve(&Function{log: log, ttl: ttl},
 		function.Listen(c.Network, c.Address),
 		function.MTLSCertificates(c.TLSCertsDir),
 		function.Insecure(c.Insecure),
