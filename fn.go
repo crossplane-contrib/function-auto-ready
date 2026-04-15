@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"regexp"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -15,7 +17,10 @@ import (
 
 	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 
+	"github.com/crossplane/function-auto-ready/cel"
+	"github.com/crossplane/function-auto-ready/features"
 	"github.com/crossplane/function-auto-ready/healthchecks"
+	input "github.com/crossplane/function-auto-ready/input/v1beta1"
 )
 
 // Function returns whatever response you ask it to.
@@ -57,7 +62,56 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 
 	f.log.Debug("Found desired resources", "count", len(desired))
 
-	// First, mark standard Kubernetes resources as ready using resource-specific health checks
+	// Read function input
+	in := &input.Input{}
+	if err := request.GetInput(req, in); err != nil {
+		response.Fatal(rsp, errors.Wrap(err, "invalid input"))
+		return rsp, nil
+	}
+
+	// First mark resources based on CEL customizations if CELHealthcheckCustomizations alpha feature is enabled
+	if features.FeatureGate.Enabled(features.CELHealthcheckCustomizations) {
+		// Read CEL HealthCheck library from referenced context
+		if in.CELHealthCheckCustomizationFrom == nil {
+			response.Fatal(rsp, errors.New("input with celHealthCheckCustomizationFrom is required when using CELHealthcheckCustomizations"))
+			return rsp, nil
+		}
+
+		celResolver := cel.Resolver{
+			HealthCheckRegistry: GetNestedMap(req.GetContext().AsMap(), *in.CELHealthCheckCustomizationFrom),
+		}
+
+		for name, dr := range desired {
+			log := log.WithValues("composed-resource-name", name)
+
+			// Skip if resource doesn't exist yet
+			or, ok := observed[name]
+			if !ok {
+				continue
+			}
+
+			// Skip if readiness already explicitly set
+			if dr.Ready != resource.ReadyUnspecified {
+				continue
+			}
+
+			// Check if this resource type has a registered health check customization
+			gvk := or.Resource.GroupVersionKind()
+
+			if celQuery, found := celResolver.GetHealthCheck(gvk); found {
+				log.Debug("Using resource-specific health check customization", "gvk", gvk.String())
+				ready, err := celResolver.HealthDeriveFromCelQuery(celQuery, or.Resource.Object)
+				if err != nil {
+					log.Debug(fmt.Sprintf("Encountered error during resource-specific health check customization evaluation: %s", err.Error()), "gvk", gvk.String())
+					continue
+				}
+
+				dr.Ready = ready
+			}
+		}
+	}
+
+	// Second, mark standard Kubernetes resources as ready using resource-specific health checks
 	for name, dr := range desired {
 		log := log.WithValues("composed-resource-name", name)
 
@@ -85,7 +139,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 		}
 	}
 
-	// Second, check remaining resources using the Ready status condition
+	// Third, check remaining resources using the Ready status condition
 	for name, dr := range desired {
 		log := log.WithValues("composed-resource-name", name)
 
@@ -125,4 +179,59 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 	}
 
 	return rsp, nil
+}
+
+func GetNestedMap(context map[string]any, key string) map[string]string {
+	parts, err := ParseNestedKey(key)
+	if err != nil {
+		return nil
+	}
+
+	currentValue := any(context)
+	for _, k := range parts {
+		// Check if the current value is a map
+		if nestedMap, ok := currentValue.(map[string]any); ok {
+			// Get the next value in the nested map
+			if nextValue, exists := nestedMap[k]; exists {
+				currentValue = nextValue
+			} else {
+				return nil
+			}
+		} else {
+			return nil
+		}
+	}
+
+	// Convert the final value to a map[string]string
+	if resultAny, ok := currentValue.(map[string]any); ok {
+		result := make(map[string]string)
+		for k, vAny := range resultAny {
+			v, ok := vAny.(string)
+			if ok {
+				result[k] = v
+			}
+		}
+		return result
+	}
+	return nil
+}
+
+// ParseNestedKey enables the bracket and dot notation to key reference
+func ParseNestedKey(key string) ([]string, error) {
+	var parts []string
+	// Regular expression to extract keys, supporting both dot and bracket notation
+	regex := regexp.MustCompile(`\[([^\[\]]+)\]|([^.\[\]]+)`)
+	matches := regex.FindAllStringSubmatch(key, -1)
+	for _, match := range matches {
+		if match[1] != "" {
+			parts = append(parts, match[1]) // Bracket notation
+		} else if match[2] != "" {
+			parts = append(parts, match[2]) // Dot notation
+		}
+	}
+
+	if len(parts) == 0 {
+		return nil, errors.New("invalid key")
+	}
+	return parts, nil
 }
