@@ -8,8 +8,8 @@ require (
 	github.com/crossplane/function-sdk-go v0.6.2
 	github.com/google/go-cmp v0.7.0
 	google.golang.org/protobuf v1.36.11
-	k8s.io/api v0.35.3
-	k8s.io/apimachinery v0.35.3
+	k8s.io/api v0.35.4
+	k8s.io/apimachinery v0.35.4
 )
 
 require (
