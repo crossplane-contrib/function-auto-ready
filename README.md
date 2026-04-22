@@ -122,6 +122,43 @@ $ crossplane render xr.yaml composition-k8s.yaml functions.yaml -o observed-k8s.
 See the [composition functions documentation][docs-functions] to learn more
 about `crossplane render`.
 
+## Function Response Caching
+
+You can set the `ttl` input to control the Function response cache time-to-live.
+This is useful for tuning reconciliation behavior in large compositions.
+
+```yaml
+  - step: auto-detect-ready-resources
+    functionRef:
+      name: function-auto-ready
+    input:
+      apiVersion: autoready.fn.crossplane.io/v1beta1
+      kind: Input
+      ttl: 5m
+```
+
+There is also a `--ttl` input parameter to the function that can be used to set the default TTL used when it is not set
+in the composition function input.  Use a `DeploymentRuntimeConfig` to set this parameter.
+
+```yaml
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: function-auto-ready
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+          - name: package-runtime
+            args:
+            - --debug
+            - --ttl="5m"
+```
+
+
 ## Developing this function
 
 This function uses [Go][go], [Docker][docker], and the [Crossplane CLI][cli] to
