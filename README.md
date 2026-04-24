@@ -67,6 +67,85 @@ This function implements resource-specific health checks for standard Kubernetes
 
 For all other resource types (Crossplane managed resources, custom resources, etc.), the function falls back to checking the standard Ready status condition.
 
+## CEL-based health checks (alpha)
+
+Some resource types — notably Crossplane `Configuration` and `Provider`
+packages, Cluster API `Cluster` and many more — do not surface a `Ready` status condition, so the default
+fallback never considers them ready. To handle these cases the function
+supports user-defined readiness expressions written in
+[CEL][cel], gated behind the `CELHealthcheckCustomizations` alpha feature
+gate.
+
+Enable the feature gate when running the function:
+
+```shell
+function-auto-ready --feature-gates=CELHealthcheckCustomizations=true
+```
+
+Customizations are supplied as a map keyed by `<group>_<version>_<kind>`
+(the group's dots replaced with underscores; the core group is the empty
+string). Each value is a CEL expression evaluated against the observed
+composed resource, bound to the variable `object`. The expression must
+return a boolean — any other result, or an evaluation error, is treated
+as not ready and surfaces a Warning on the response. When a customization
+exists for a given GVK it takes precedence over the built-in health check.
+
+There are two ways to supply customizations, and they can be combined:
+
+### Inline CEL rules (`celHealthCheckCustomization`)
+
+Define rules directly in the function input. This is the simplest option
+when the rules are static and do not need to vary across environments:
+
+```yaml
+- step: automatically-detect-ready-composed-resources
+  functionRef:
+    name: function-auto-ready
+  input:
+    apiVersion: autoready.fn.crossplane.io/v1alpha1
+    kind: Input
+    celHealthCheckCustomization:
+      pkg.crossplane.io_v1_Configuration: >-
+        object.status.conditions.exists(c, c.type == 'Installed' && c.status == 'True') &&
+        object.status.conditions.exists(c, c.type == 'Healthy'   && c.status == 'True')
+      cluster.cluster.x-k8s.io_v1beta1_Cluster: >-
+        object.status.conditions.exists(c, c.type == 'Ready' && c.status == 'True')
+```
+
+### CEL rules from the function context (`celHealthCheckCustomizationFrom`)
+
+Read the map from the function's request context by providing a
+[field path][fieldpath]. This is useful when rules need to vary per
+environment or be shared across multiple compositions:
+
+```yaml
+- step: automatically-detect-ready-composed-resources
+  functionRef:
+    name: function-auto-ready
+  input:
+    apiVersion: autoready.fn.crossplane.io/v1alpha1
+    kind: Input
+    celHealthCheckCustomizationFrom: "[apiextensions.crossplane.io/environment].celHealthCheckCustomizations"
+```
+
+Any source that populates the function context can supply the map —
+typically `function-environment-configs` reading an `EnvironmentConfig`,
+but an earlier pipeline step works just as well.
+
+### Combining both sources
+
+Both fields can be set at the same time. Context-provided rules are loaded
+first; inline rules are then merged on top of them. Inline entries take
+precedence, so they can selectively override context-provided rules for
+specific GVKs without replacing the entire map.
+
+See [`example/cel-healthcheck`](example/cel-healthcheck/) for a runnable
+example that checks the `Installed` and `Healthy` conditions on a
+Crossplane `Configuration`.
+
+[cel]: https://github.com/google/cel-spec
+[fieldpath]: https://pkg.go.dev/github.com/crossplane/function-sdk-go/request
+
 In this example, the [Go Templating][fn-go-templating] function is used to add
 a desired composed resource - an Amazon Web Services S3 Bucket. Once Crossplane
 has created the Bucket, the Auto Ready function will let Crossplane know when it
@@ -106,7 +185,7 @@ spec:
       name: function-auto-ready
 ```
 
-See the [example](example) directory for an example you can run locally using
+See the [example](example/basic/) directory for an example you can run locally using
 the Crossplane CLI:
 
 ```shell
