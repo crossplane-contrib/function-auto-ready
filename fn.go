@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"maps"
 	"regexp"
 	"time"
 
@@ -71,14 +72,23 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 
 	// First mark resources based on CEL customizations if CELHealthcheckCustomizations alpha feature is enabled
 	if features.FeatureGate.Enabled(features.CELHealthcheckCustomizations) {
-		// Read CEL HealthCheck library from referenced context
-		if in.CELHealthCheckCustomizationFrom == nil {
-			response.Fatal(rsp, errors.New("input with celHealthCheckCustomizationFrom is required when using CELHealthcheckCustomizations"))
-			return rsp, nil
+		// Evaluate the CEL health checks customizations
+		// both CELHealthCheckCustomizationFrom and CELHealthCheckCustomization are merged into celHealthChecks
+		// with inline CELHealthCheckCustomization taking precedence over customization passed via context
+		celHealthchecks := make(map[string]string)
+
+		if in.CELHealthCheckCustomizationFrom != nil {
+			// Initialize celHealthchecks with context entries
+			celHealthchecks = GetNestedMap(req.GetContext().AsMap(), *in.CELHealthCheckCustomizationFrom)
+		}
+
+		if in.CELHealthCheckCustomization != nil {
+			// Merge inline cel health checks with existing health checks, overwrite existing entries if they exist
+			maps.Copy(celHealthchecks, *in.CELHealthCheckCustomization)
 		}
 
 		celResolver := cel.Resolver{
-			HealthCheckRegistry: GetNestedMap(req.GetContext().AsMap(), *in.CELHealthCheckCustomizationFrom),
+			HealthCheckRegistry: celHealthchecks,
 		}
 
 		for name, dr := range desired {
@@ -102,6 +112,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 				log.Debug("Using resource-specific health check customization", "gvk", gvk.String())
 				ready, err := celResolver.HealthDeriveFromCelQuery(celQuery, or.Resource.Object)
 				if err != nil {
+					response.Warning(rsp, err)
 					log.Debug(fmt.Sprintf("Encountered error during resource-specific health check customization evaluation: %s", err.Error()), "gvk", gvk.String())
 					continue
 				}

@@ -13,6 +13,17 @@ func (in *Input) DeepCopyInto(out *Input) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
+	if in.CELHealthCheckCustomization != nil {
+		in, out := &in.CELHealthCheckCustomization, &out.CELHealthCheckCustomization
+		*out = new(map[string]string)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make(map[string]string, len(*in))
+			for key, val := range *in {
+				(*out)[key] = val
+			}
+		}
+	}
 	if in.CELHealthCheckCustomizationFrom != nil {
 		in, out := &in.CELHealthCheckCustomizationFrom, &out.CELHealthCheckCustomizationFrom
 		*out = new(string)

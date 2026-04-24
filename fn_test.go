@@ -325,12 +325,6 @@ func TestCELHealthcheckCustomizations(t *testing.T) {
 		}
 	}`)
 
-	input := resource.MustStructJSON(`{
-		"apiVersion": "autoready.fn.crossplane.io/v1alpha1",
-		"kind": "Input",
-		"celHealthCheckCustomizationFrom": "[apiextensions.crossplane.io/environment].celHealthCheckCustomizations"
-	}`)
-
 	type args struct {
 		ctx context.Context
 		req *fnv1.RunFunctionRequest
@@ -345,70 +339,17 @@ func TestCELHealthcheckCustomizations(t *testing.T) {
 		args   args
 		want   want
 	}{
-		"FatalIfInputInvalid": {
-			reason: "A Fatal result should be returned if Input is missing celHealthCheckCustomizationFrom",
-			args: args{
-				req: &fnv1.RunFunctionRequest{
-					Meta: &fnv1.RequestMeta{Tag: "hello"},
-					Input: resource.MustStructJSON(`{
-						"apiVersion": "autoready.fn.crossplane.io/v1alpha1",
-						"kind": "Input"
-					}`),
-					Observed: &fnv1.State{
-						Composite: &fnv1.Resource{
-							Resource: resource.MustStructJSON(`{
-								"apiVersion": "test.crossplane.io/v1",
-								"kind": "TestXR",
-								"metadata": {
-									"name": "my-test-xr"
-								}
-							}`),
-						},
-					},
-					Desired: &fnv1.State{
-						Resources: map[string]*fnv1.Resource{
-							// This function doesn't care about the desired
-							// resource schema. In practice it would match
-							// observed (without status), but for this test it
-							// doesn't matter.
-							"my-resource": {
-								Resource: resource.MustStructJSON(`{}`),
-							},
-						},
-					},
-				},
-			},
-			want: want{
-				rsp: &fnv1.RunFunctionResponse{
-					Meta: &fnv1.ResponseMeta{Tag: "hello", Ttl: durationpb.New(response.DefaultTTL)},
-					Desired: &fnv1.State{
-						Resources: map[string]*fnv1.Resource{
-							// This function doesn't care about the desired
-							// resource schema. In practice it would match
-							// observed (without status), but for this test it
-							// doesn't matter.
-							"my-resource": {
-								Resource: resource.MustStructJSON(`{}`),
-							},
-						},
-					},
-					Results: []*fnv1.Result{
-						{
-							Severity: fnv1.Severity_SEVERITY_FATAL,
-							Message:  "input with celHealthCheckCustomizationFrom is required when using CELHealthcheckCustomizations",
-							Target:   fnv1.Target_TARGET_COMPOSITE.Enum(),
-						},
-					},
-				},
-			},
-		},
-		"CELHealthCheck": {
-			reason: "A Configuration should be ready when both conditions are true and CEL customization is present",
+		"CELHealthCheckFromContext": {
+			reason: "A Configuration should be ready when both conditions are true and CEL customization in context is present",
 			args: args{
 				req: &fnv1.RunFunctionRequest{
 					Meta:    &fnv1.RequestMeta{Tag: "hello"},
 					Context: reqContext,
-					Input:   input,
+					Input: resource.MustStructJSON(`{
+						"apiVersion": "autoready.fn.crossplane.io/v1alpha1",
+						"kind": "Input",
+						"celHealthCheckCustomizationFrom": "[apiextensions.crossplane.io/environment].celHealthCheckCustomizations"
+					}`),
 					Observed: &fnv1.State{
 						Composite: &fnv1.Resource{
 							Resource: resource.MustStructJSON(`{
@@ -478,13 +419,175 @@ func TestCELHealthcheckCustomizations(t *testing.T) {
 				},
 			},
 		},
+		"CELHealthCheckFromInput": {
+			reason: "A Configuration should be ready when both conditions are true and CEL customization in Input is present",
+			args: args{
+				req: &fnv1.RunFunctionRequest{
+					Meta: &fnv1.RequestMeta{Tag: "hello"},
+					Input: resource.MustStructJSON(`{
+						"apiVersion": "autoready.fn.crossplane.io/v1alpha1",
+						"kind": "Input",
+						"celHealthCheckCustomization": {
+							"pkg.crossplane.io_v1_Configuration": "object.status.conditions.exists(c, c.type == 'Installed' && c.status == 'True') && object.status.conditions.exists(c, c.type == 'Healthy' && c.status == 'True')"
+						}
+					}`),
+					Observed: &fnv1.State{
+						Composite: &fnv1.Resource{
+							Resource: resource.MustStructJSON(`{
+								"apiVersion": "test.crossplane.io/v1",
+								"kind": "TestXR",
+								"metadata": {
+									"name": "my-test-xr"
+								}
+							}`),
+						},
+						Resources: map[string]*fnv1.Resource{
+							"my-configuration": {
+								Resource: resource.MustStructJSON(`{
+									"apiVersion": "pkg.crossplane.io/v1",
+									"kind": "Configuration",
+									"metadata": {
+										"name": "my-configuration"
+									},
+									"spec": {
+										"package": "xpkg.crossplane.io/test-package:0.0.1"
+									},
+									"status": {
+										"conditions": [
+											{
+												"type": "Installed",
+												"status": "True"
+											},
+											{
+												"type": "Healthy",
+												"status": "True"
+											}
+										]
+									}
+								}`),
+							},
+						},
+					},
+					Desired: &fnv1.State{
+						Resources: map[string]*fnv1.Resource{
+							// This function doesn't care about the desired
+							// resource schema. In practice it would match
+							// observed (without status), but for this test it
+							// doesn't matter.
+							"my-configuration": {
+								Resource: resource.MustStructJSON(`{}`),
+							},
+						},
+					},
+				},
+			},
+			want: want{
+				rsp: &fnv1.RunFunctionResponse{
+					Meta: &fnv1.ResponseMeta{Tag: "hello", Ttl: durationpb.New(response.DefaultTTL)},
+					Desired: &fnv1.State{
+						Resources: map[string]*fnv1.Resource{
+							// This function doesn't care about the desired
+							// resource schema. In practice it would match
+							// observed (without status), but for this test it
+							// doesn't matter.
+							"my-configuration": {
+								Resource: resource.MustStructJSON(`{}`),
+								Ready:    fnv1.Ready_READY_TRUE,
+							},
+						},
+					},
+				},
+			},
+		},
+		"CELHealthCheckInlineShouldOverrideHealthCheckFromContext": {
+			reason: "A Configuration should be not ready when inline CEL customization overrides the customization from Context",
+			args: args{
+				req: &fnv1.RunFunctionRequest{
+					Meta:    &fnv1.RequestMeta{Tag: "hello"},
+					Context: reqContext,
+					Input: resource.MustStructJSON(`{
+						"apiVersion": "autoready.fn.crossplane.io/v1alpha1",
+						"kind": "Input",
+						"celHealthCheckCustomization": {
+							"pkg.crossplane.io_v1_Configuration": "false"
+						},
+						"celHealthCheckCustomizationFrom": "[apiextensions.crossplane.io/environment].celHealthCheckCustomizations"
+					}`),
+					Observed: &fnv1.State{
+						Composite: &fnv1.Resource{
+							Resource: resource.MustStructJSON(`{
+								"apiVersion": "test.crossplane.io/v1",
+								"kind": "TestXR",
+								"metadata": {
+									"name": "my-test-xr"
+								}
+							}`),
+						},
+						Resources: map[string]*fnv1.Resource{
+							"my-configuration": {
+								Resource: resource.MustStructJSON(`{
+									"apiVersion": "pkg.crossplane.io/v1",
+									"kind": "Configuration",
+									"metadata": {
+										"name": "my-configuration"
+									},
+									"spec": {
+										"package": "xpkg.crossplane.io/test-package:0.0.1"
+									},
+									"status": {
+										"conditions": [
+											{
+												"type": "Installed",
+												"status": "True"
+											},
+											{
+												"type": "Healthy",
+												"status": "True"
+											}
+										]
+									}
+								}`),
+							},
+						},
+					},
+					Desired: &fnv1.State{
+						Resources: map[string]*fnv1.Resource{
+							// This function doesn't care about the desired
+							// resource schema. In practice it would match
+							// observed (without status), but for this test it
+							// doesn't matter.
+							"my-configuration": {
+								Resource: resource.MustStructJSON(`{}`),
+							},
+						},
+					},
+				},
+			},
+			want: want{
+				rsp: &fnv1.RunFunctionResponse{
+					Meta:    &fnv1.ResponseMeta{Tag: "hello", Ttl: durationpb.New(response.DefaultTTL)},
+					Context: reqContext,
+					Desired: &fnv1.State{
+						Resources: map[string]*fnv1.Resource{
+							// This function doesn't care about the desired
+							// resource schema. In practice it would match
+							// observed (without status), but for this test it
+							// doesn't matter.
+							"my-configuration": {
+								Resource: resource.MustStructJSON(`{}`),
+								Ready:    fnv1.Ready_READY_FALSE,
+							},
+						},
+					},
+				},
+			},
+		},
 		"FallbackToReadyCondition": {
 			reason: "Resources without registered health checks should fall back to Ready condition check",
 			args: args{
 				req: &fnv1.RunFunctionRequest{
 					Meta:    &fnv1.RequestMeta{Tag: "hello"},
 					Context: reqContext,
-					Input:   input,
 					Observed: &fnv1.State{
 						Composite: &fnv1.Resource{
 							Resource: resource.MustStructJSON(`{

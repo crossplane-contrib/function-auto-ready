@@ -1,9 +1,6 @@
 package cel
 
 import (
-	"encoding/json"
-	"reflect"
-
 	"github.com/crossplane/function-sdk-go/resource"
 	"github.com/google/cel-go/cel"
 	celtypes "github.com/google/cel-go/common/types"
@@ -21,7 +18,6 @@ const (
 	errCelQueryFailedToCreateProgram     = "failed to create program from the cel query"
 	errCelQueryFailedToEvalProgram       = "failed to eval the program"
 	errCelQueryFailedToCreateEnvironment = "cel query failed to create environment"
-	errCelQueryJSON                      = "failed to marshal or unmarshal the obj for cel query"
 )
 
 func (r Resolver) GetHealthCheck(gvk schema.GroupVersionKind) (celQuery string, found bool) {
@@ -47,8 +43,9 @@ func (r Resolver) HealthDeriveFromCelQuery(celQuery string, obj map[string]any) 
 		err = errors.Wrap(iss.Err(), errCelQueryFailedToCompile)
 		return ready, err
 	}
-	if !reflect.DeepEqual(ast.OutputType(), cel.BoolType) {
-		err = errors.Wrap(err, errCelQueryReturnTypeNotBool)
+
+	if !ast.OutputType().IsExactType(cel.BoolType) {
+		err = errors.New(errCelQueryReturnTypeNotBool)
 		return ready, err
 	}
 
@@ -58,22 +55,8 @@ func (r Resolver) HealthDeriveFromCelQuery(celQuery string, obj map[string]any) 
 		return ready, err
 	}
 
-	data, err := json.Marshal(obj)
-	if err != nil {
-		err = errors.Wrap(err, errCelQueryJSON)
-		return ready, err
-	}
-
-	objMap := map[string]any{}
-	err = json.Unmarshal(data, &objMap)
-	if err != nil {
-		// this should not happen, but just in case
-		err = errors.Wrap(err, errCelQueryJSON)
-		return ready, err
-	}
-
 	val, _, err := program.Eval(map[string]any{
-		"object": objMap,
+		"object": obj,
 	})
 	if err != nil {
 		err = errors.Wrap(err, errCelQueryFailedToEvalProgram)
