@@ -28,6 +28,13 @@ spec:
               may reject unrecognized values.
               More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
+          celHealthCheckCustomization:
+            additionalProperties:
+              type: string
+            description: CELHealthCheckCustomization is a map of CEL health check
+              customizations
+            type: object
+            x-kubernetes-preserve-unknown-fields: true
           celHealthCheckCustomizationFrom:
             description: CELHealthCheckCustomizationFrom is a reference to fetch CEL
               health check customizations from context
@@ -42,10 +49,6 @@ spec:
             type: string
           metadata:
             type: object
-          ttl:
-            default: 1m0s
-            description: TTL for which a response can be cached in time.Duration format
-            type: string
         type: object
     served: true
     storage: true

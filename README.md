@@ -87,12 +87,36 @@ Customizations are supplied as a map keyed by `<group>_<version>_<kind>`
 string). Each value is a CEL expression evaluated against the observed
 composed resource, bound to the variable `object`. The expression must
 return a boolean — any other result, or an evaluation error, is treated
-as not ready. When a customization exists for a given GVK it takes
-precedence over the built-in health check.
+as not ready and surfaces a Warning on the response. When a customization
+exists for a given GVK it takes precedence over the built-in health check.
 
-The map is read from the function's request context. Point the function
-at it with the `celHealthCheckCustomizationFrom` input field, which
-accepts a [field path][fieldpath]:
+There are two ways to supply customizations, and they can be combined:
+
+### Inline CEL rules (`celHealthCheckCustomization`)
+
+Define rules directly in the function input. This is the simplest option
+when the rules are static and do not need to vary across environments:
+
+```yaml
+- step: automatically-detect-ready-composed-resources
+  functionRef:
+    name: function-auto-ready
+  input:
+    apiVersion: autoready.fn.crossplane.io/v1alpha1
+    kind: Input
+    celHealthCheckCustomization:
+      pkg.crossplane.io_v1_Configuration: >-
+        object.status.conditions.exists(c, c.type == 'Installed' && c.status == 'True') &&
+        object.status.conditions.exists(c, c.type == 'Healthy'   && c.status == 'True')
+      cluster.cluster.x-k8s.io_v1beta1_Cluster: >-
+        object.status.conditions.exists(c, c.type == 'Ready' && c.status == 'True')
+```
+
+### CEL rules from the function context (`celHealthCheckCustomizationFrom`)
+
+Read the map from the function's request context by providing a
+[field path][fieldpath]. This is useful when rules need to vary per
+environment or be shared across multiple compositions:
 
 ```yaml
 - step: automatically-detect-ready-composed-resources
@@ -106,8 +130,16 @@ accepts a [field path][fieldpath]:
 
 Any source that populates the function context can supply the map —
 typically `function-environment-configs` reading an `EnvironmentConfig`,
-but an earlier pipeline step works just as well. See
-[`example/cel-healthcheck`](example/cel-healthcheck/) for a runnable
+but an earlier pipeline step works just as well.
+
+### Combining both sources
+
+Both fields can be set at the same time. Context-provided rules are loaded
+first; inline rules are then merged on top of them. Inline entries take
+precedence, so they can selectively override context-provided rules for
+specific GVKs without replacing the entire map.
+
+See [`example/cel-healthcheck`](example/cel-healthcheck/) for a runnable
 example that checks the `Installed` and `Healthy` conditions on a
 Crossplane `Configuration`.
 
