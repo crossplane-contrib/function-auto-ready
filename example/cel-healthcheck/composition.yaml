@@ -1,0 +1,48 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: example-k8s-service-cluster-configurations
+spec:
+  compositeTypeRef:
+    apiVersion: example.crossplane.io/v1
+    kind: XR
+  mode: Pipeline
+  pipeline:
+  - step: create-k8s-resources
+    functionRef:
+      name: function-go-templating
+    input:
+      apiVersion: gotemplating.fn.crossplane.io/v1beta1
+      kind: GoTemplate
+      source: Inline
+      inline:
+        template: |
+          ---
+          apiVersion: pkg.crossplane.io/v1
+          kind: Configuration
+          metadata:
+            name: configuration-database-platform
+            annotations:
+              gotemplating.fn.crossplane.io/composition-resource-name: configuration-database-platform
+          spec:
+            ignoreCrossplaneConstraints: false
+            package: xpkg.crossplane.io/configuration-database-platform:1.0.0
+  - step: fetch-cel-healthcheck-customizations
+    functionRef:
+      name: function-environment-configs
+    input:
+      apiVersion: environmentconfigs.fn.crossplane.io/v1beta1
+      kind: Input
+      spec:
+        environmentConfigs:
+          - type: Reference
+            ref:
+              name: healthcheck-customizations
+  # This function will automatically detect readiness using resource-specific health checks
+  - step: automatically-detect-ready-composed-resources
+    functionRef:
+      name: function-auto-ready
+    input:
+      apiVersion: autoready.fn.crossplane.io/v1beta1
+      kind: Input
+      celHealthCheckCustomizationFrom: "[apiextensions.crossplane.io/environment].celHealthCheckCustomizations"
