@@ -13,7 +13,7 @@ import (
 	"github.com/crossplane/function-sdk-go/resource"
 	"github.com/crossplane/function-sdk-go/response"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	xpv2 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	"github.com/crossplane/function-auto-ready/healthchecks"
 )
@@ -112,7 +112,7 @@ func (f *Function) RunFunction(_ context.Context, req *fnv1.RunFunctionRequest) 
 		log.Debug("Found desired resource with unknown readiness")
 		// If this observed resource has a status condition with type: Ready,
 		// status: True, we set its readiness to true.
-		c := or.Resource.GetCondition(xpv1.TypeReady)
+		c := or.Resource.GetCondition(xpv2.TypeReady)
 		if c.Status == corev1.ConditionTrue {
 			log.Debug("Automatically determined that composed resource is ready")
 			dr.Ready = resource.ReadyTrue
