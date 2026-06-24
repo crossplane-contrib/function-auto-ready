@@ -1,0 +1,31 @@
+# This file simulates observed resources as they would appear in a running cluster
+# Use this with: crossplane render xr.yaml composition.yaml functions.yaml -o observed.yaml
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Configuration
+metadata:
+  name: configuration-database-platform
+  annotations:
+    crossplane.io/composition-resource-name: configuration-database-platform
+spec:
+  ignoreCrossplaneConstraints: false
+  package: xpkg.crossplane.io/configuration-database-platform:1.0.0
+  packagePullPolicy: Always
+  revisionActivationPolicy: Automatic
+  revisionHistoryLimit: 1
+  skipDependencyResolution: false
+status:
+  conditions:
+    - lastTransitionTime: '2026-04-08T13:18:16Z'
+      observedGeneration: 13
+      reason: HealthyPackageRevision
+      status: 'True'
+      type: Healthy
+    - lastTransitionTime: '2026-04-08T13:18:12Z'
+      observedGeneration: 13
+      reason: ActivePackageRevision
+      status: 'True'
+      type: Installed
+  currentIdentifier: xpkg.crossplane.io/configuration-database-platform:1.0.0
+  currentRevision: configuration-database-platform-a75c2c6ed34f
+  resolvedPackage: xpkg.crossplane.io/configuration-database-platform:1.0.0

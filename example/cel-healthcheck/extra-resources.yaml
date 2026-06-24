@@ -1,0 +1,7 @@
+apiVersion: apiextensions.crossplane.io/v1beta1
+kind: EnvironmentConfig
+metadata:
+  name: healthcheck-customizations
+data:
+  celHealthCheckCustomizations:
+    pkg.crossplane.io_v1_Configuration: 'object.status.conditions.exists(c, c.type == "Installed" && c.status == "True") && object.status.conditions.exists(c, c.type == "Healthy" && c.status == "True")'
