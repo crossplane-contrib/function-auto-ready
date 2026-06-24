@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/crossplane/function-auto-ready/input/v1beta1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -301,7 +303,7 @@ func TestRunFunction(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			f := &Function{log: logging.NewNopLogger(), TTL: response.DefaultTTL}
+			f := &Function{log: logging.NewNopLogger(), ttl: response.DefaultTTL}
 			rsp, err := f.RunFunction(tc.args.ctx, tc.args.req)
 
 			if diff := cmp.Diff(tc.want.rsp, rsp, protocmp.Transform()); diff != "" {
@@ -309,6 +311,66 @@ func TestRunFunction(t *testing.T) {
 			}
 
 			if diff := cmp.Diff(tc.want.err, err, cmpopts.EquateErrors()); diff != "" {
+				t.Errorf("%s\nf.RunFunction(...): -want err, +got err:\n%s", tc.reason, diff)
+			}
+		})
+	}
+}
+
+func TestRunFunctionCacheTTL(t *testing.T) {
+	xr := `{"apiVersion":"example.org/v1","kind":"XR","metadata":{"name":"cool-xr"},"spec":{"count":1}}`
+
+	cases := map[string]struct {
+		reason string
+		input  *v1beta1.Input
+		want   *fnv1.RunFunctionResponse
+	}{
+		"InputTTL": {
+			reason: "Set the response ttl value from the input specified",
+			input:  &v1beta1.Input{TTL: "5m"},
+			want: &fnv1.RunFunctionResponse{
+				Meta: &fnv1.ResponseMeta{Ttl: durationpb.New(5 * time.Minute)},
+				Desired: &fnv1.State{
+					Composite: &fnv1.Resource{
+						Resource: resource.MustStructJSON(xr),
+					},
+					Resources: map[string]*fnv1.Resource{
+						"second": {
+							Resource: resource.MustStructJSON(xr),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := &Function{log: logging.NewNopLogger()}
+			req := &fnv1.RunFunctionRequest{
+				Input: resource.MustStructObject(tc.input),
+				Observed: &fnv1.State{
+					Composite: &fnv1.Resource{
+						Resource: resource.MustStructJSON(xr),
+					},
+					Resources: map[string]*fnv1.Resource{},
+				},
+				Desired: &fnv1.State{
+					Composite: &fnv1.Resource{
+						Resource: resource.MustStructJSON(xr),
+					},
+					Resources: map[string]*fnv1.Resource{
+						"second": {
+							Resource: resource.MustStructJSON(xr),
+						},
+					},
+				},
+			}
+			rsp, err := f.RunFunction(context.Background(), req)
+			if diff := cmp.Diff(tc.want, rsp, protocmp.Transform()); diff != "" {
+				t.Errorf("%s\nf.RunFunction(...): -want rsp, +got rsp:\n%s", tc.reason, diff)
+			}
+			if diff := cmp.Diff(nil, err, cmpopts.EquateErrors()); diff != "" {
 				t.Errorf("%s\nf.RunFunction(...): -want err, +got err:\n%s", tc.reason, diff)
 			}
 		})
