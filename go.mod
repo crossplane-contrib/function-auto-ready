@@ -1,6 +1,6 @@
 module github.com/crossplane/function-auto-ready
 
-go 1.25.12
+go 1.25.13
 
 require (
 	github.com/alecthomas/kong v1.12.0
