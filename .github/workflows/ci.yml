@@ -38,7 +38,7 @@ env:
 
 jobs:
   lint:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -56,7 +56,7 @@ jobs:
           args: --timeout=5m
 
   unit-test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -74,7 +74,7 @@ jobs:
   # those packages to GitHub as a build artifact. The push job downloads those
   # artifacts and pushes them as a single multi-platform package. 
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: true
       matrix:
@@ -130,7 +130,7 @@ jobs:
   # XPKG_ACCESS_ID and XPKG_TOKEN secrets were provided.
   push:
     if: ${{ github.event_name != 'pull_request' }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs:
       - build
     steps:
