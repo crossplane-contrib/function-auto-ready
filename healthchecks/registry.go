@@ -57,6 +57,8 @@ func getInt64Field(obj map[string]interface{}, path ...string) (int64, bool) {
 
 func init() {
 	// Register all standard Kubernetes resource health checks
+	registerClusterRoleBindingHealthCheck()
+	registerClusterRoleHealthCheck()
 	registerConfigMapHealthCheck()
 	registerCronJobHealthCheck()
 	registerDaemonSetHealthCheck()
@@ -68,6 +70,8 @@ func init() {
 	registerPersistentVolumeClaimHealthCheck()
 	registerPodHealthCheck()
 	registerReplicaSetHealthCheck()
+	registerRoleBindingHealthCheck()
+	registerRoleHealthCheck()
 	registerSecretHealthCheck()
 	registerServiceHealthCheck()
 	registerServiceAccountHealthCheck()

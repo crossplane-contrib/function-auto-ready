@@ -51,10 +51,10 @@ This function implements resource-specific health checks for standard Kubernetes
 - [ ] NetworkPolicy
 
 ### RBAC (rbac.authorization.k8s.io/v1)
-- [ ] Role
-- [ ] ClusterRole
-- [ ] RoleBinding
-- [ ] ClusterRoleBinding
+- [x] Role - Always ready if it exists
+- [x] ClusterRole - Always ready if it exists
+- [x] RoleBinding - Always ready if it exists
+- [x] ClusterRoleBinding - Always ready if it exists
 
 ### Storage (storage.k8s.io/v1)
 - [ ] StorageClass
