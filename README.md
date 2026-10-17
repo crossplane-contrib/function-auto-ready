@@ -20,17 +20,17 @@ This function implements resource-specific health checks for standard Kubernetes
 - [x] Pod - Succeeded, or Running with Ready condition (RestartPolicy: Always)
 - [x] Service - ClusterIP/NodePort: immediately ready; LoadBalancer: requires ingress assignment
 - [x] Namespace - Always ready if it exists
-- [ ] Node
+- [x] Node - Ready condition is True
 - [x] ConfigMap - Always ready if it exists
 - [x] Secret - Always ready if it exists
 - [x] ServiceAccount - Always ready if it exists
-- [ ] Endpoints
-- [ ] PersistentVolume
+- [x] Endpoints - Always ready if it exists
+- [x] PersistentVolume - Phase is Bound or Available
 - [x] PersistentVolumeClaim - Phase is Bound
-- [ ] ReplicationController
-- [ ] ResourceQuota
-- [ ] LimitRange
-- [ ] Event
+- [x] ReplicationController - All replicas ready and available
+- [x] ResourceQuota - Always ready if it exists
+- [x] LimitRange - Always ready if it exists
+- [x] Event - Always ready if it exists
 
 ### Apps (apps/v1)
 - [x] Deployment - `spec.replicas == status.availableReplicas`, all replicas updated, `Available` condition is `True`
