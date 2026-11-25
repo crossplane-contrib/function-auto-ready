@@ -13,16 +13,16 @@ import (
 
 // CLI of this Function.
 type CLI struct {
-	Debug bool `short:"d" help:"Emit debug logs in addition to info logs."`
+	Debug bool `env:"DEBUG" help:"Emit debug logs in addition to info logs." short:"d"`
 
-	Network            string         `help:"Network on which to listen for gRPC connections." default:"tcp"`
-	Address            string         `help:"Address at which to listen for gRPC connections." default:":9443"`
-	TLSCertsDir        string         `help:"Directory containing server certs (tls.key, tls.crt) and the CA used to verify client certificates (ca.crt)" env:"TLS_SERVER_CERTS_DIR"`
-	Insecure           bool           `help:"Run without mTLS credentials. If you supply this flag --tls-server-certs-dir will be ignored."`
-	MaxRecvMessageSize int            `help:"Maximum size of received messages in MB." default:"4"`
-	TTL                *time.Duration `help:"Time to live for function response."`
+	Network            string         `default:"tcp"                   env:"NETWORK"                                                                                                      help:"Network on which to listen for gRPC connections."`
+	Address            string         `default:":9443"                 env:"ADDRESS"                                                                                                      help:"Address at which to listen for gRPC connections."`
+	TLSCertsDir        string         `env:"TLS_SERVER_CERTS_DIR"      help:"Directory containing server certs (tls.key, tls.crt) and the CA used to verify client certificates (ca.crt)"`
+	Insecure           bool           `env:"INSECURE"                  help:"Run without mTLS credentials. If you supply this flag --tls-server-certs-dir will be ignored."`
+	MaxRecvMessageSize int            `aliases:"max-grpc-message-size" default:"4"                                                                                                        env:"MAX_RECV_MESSAGE_SIZE,MAX_GRPC_MESSAGE_SIZE"       help:"Maximum size of received messages in MB."`
+	TTL                *time.Duration `env:"TTL"                       help:"Time to live for function response."`
 
-	FeatureGates string `default:""     help:"Feature gates to enable/disable (e.g. CELHealthcheckCustomizations=true)."`
+	FeatureGates string `default:"" help:"Feature gates to enable/disable (e.g. CELHealthcheckCustomizations=true)."`
 }
 
 // Run this Function.
