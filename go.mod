@@ -3,10 +3,10 @@ module github.com/crossplane/function-auto-ready
 go 1.27.4
 
 require (
+	cel.dev/cel-go v0.33.4
 	github.com/alecthomas/kong v1.16.0
 	github.com/crossplane/crossplane/apis/v2 v2.4.4
 	github.com/crossplane/function-sdk-go v0.7.1
-	github.com/google/cel-go v0.30.0
 	github.com/google/go-cmp v0.7.0
 	github.com/pkg/errors v0.9.1
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
