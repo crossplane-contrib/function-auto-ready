@@ -1,9 +1,9 @@
 package cel
 
 import (
+	"cel.dev/cel-go/cel"
+	celtypes "cel.dev/cel-go/common/types"
 	"github.com/crossplane/function-sdk-go/resource"
-	"github.com/google/cel-go/cel"
-	celtypes "github.com/google/cel-go/common/types"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
